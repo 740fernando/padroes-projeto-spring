@@ -1,9 +1,16 @@
 package one.digitalinnovation.padroesprojetospring.model.service.impl;
 
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import one.digitalinnovation.padroesprojetospring.model.dao.repositories.ClienteRepository;
+import one.digitalinnovation.padroesprojetospring.model.dao.repositories.EnderecoRepository;
 import one.digitalinnovation.padroesprojetospring.model.entities.Cliente;
+import one.digitalinnovation.padroesprojetospring.model.entities.Endereco;
 import one.digitalinnovation.padroesprojetospring.model.service.ClienteService;
+import one.digitalinnovation.padroesprojetospring.model.service.ViaCepService;
 
 /**
  * Implementação da <b>Strategy</b> {@link ClienteService}, a qual pode ser
@@ -13,45 +20,59 @@ import one.digitalinnovation.padroesprojetospring.model.service.ClienteService;
  * @author 740Ferbabdi
  */
 
-
 @Service
 public class ClienteServiceImpl implements ClienteService {
 
-	// Singleton: Injetar os componentes do Spring com @Autowired.
-	
-	
-	
-	// Strategy: Implementar os métodos definidos na interface.
-	// Facade: Abstrair integrações com subsistemas, provendo uma interface simples.
-	
+	@Autowired
+	private ClienteRepository clienteRepository;
+
+	@Autowired
+	private EnderecoRepository enderecoRepository;
+
+	@Autowired
+	private ViaCepService viaCepService;
+
 	@Override
 	public Iterable<Cliente> buscarTodos() {
-		// TODO Auto-generated method stub
-		return null;
+		return clienteRepository.findAll();
 	}
 
 	@Override
 	public Cliente buscarPorId(Long id) {
-		// TODO Auto-generated method stub
-		return null;
+		Optional<Cliente> cliente = clienteRepository.findById(id);
+		return cliente.get();
 	}
 
 	@Override
 	public void inserir(Cliente cliente) {
-		// TODO Auto-generated method stub
-		
+		salvarClienteComCep(cliente);
 	}
 
 	@Override
 	public void atualizar(Long id, Cliente cliente) {
-		// TODO Auto-generated method stub
-		
+		Optional<Cliente> clienteBd = clienteRepository.findById(id);
+		if (clienteBd.isPresent()) {
+			salvarClienteComCep(cliente);
+		}
 	}
 
 	@Override
 	public void deletar(Long id) {
-		// TODO Auto-generated method stub
-		
+		clienteRepository.deleteById(id);
+	}
+
+	private void salvarClienteComCep(Cliente cliente) {
+		// Verificar se o Endereco do Cliente já existe (pelo CEP).
+		String cep = cliente.getEndereco().getCep();
+		Endereco endereco = enderecoRepository.findById(cep).orElseGet(() -> {
+			// Caso não exista, integrar com o ViaCep e persistir o retorno
+			Endereco novoEndereco = viaCepService.consultarCep(cep);
+			enderecoRepository.save(novoEndereco);
+			return novoEndereco;
+		});
+		cliente.setEndereco(endereco);
+		// Inserir Cliente, vinculando o endereco(novo ou existente)
+		clienteRepository.save(cliente);
 	}
 
 }
